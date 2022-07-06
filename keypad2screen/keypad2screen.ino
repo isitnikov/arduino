@@ -5,10 +5,10 @@
 #include <EEPROM.h>
 
 
-const int ROW_NUM = 4; //four rows
-const int COLUMN_NUM = 4; //four columns
+const int KEYPAD_ROWS    = 4;
+const int KEYPAD_COLUMNS = 4;
 
-const int SHIFT_AUTH = 5;
+const int SHIFT_AUTH    = 5;
 const int SHIFT_NEW_PIN = 9;
 
 const int SCREEN_AUTH = 1;
@@ -17,19 +17,25 @@ const int SCREEN_WELCOME = 3;
 
 const String PIN_DEFAULT = "1234";
 
-char keys[ROW_NUM][COLUMN_NUM] = {
-  {'1','2','3', 'A'},
-  {'4','5','6', 'B'},
-  {'7','8','9', 'C'},
-  {'*','0','#', 'D'}
+const char KEY_BACKSPACE = '#';
+const char KEY_ENTER     = '*';
+const char KEY_NEW_PIN   = 'A';
+const char KEY_LOGOUT    = 'C';
+const char KEY_REBOOT    = 'D';
+
+char keys[KEYPAD_ROWS][KEYPAD_COLUMNS] = {
+  {'1',      '2','3',           KEY_NEW_PIN},
+  {'4',      '5','6',           'B'},
+  {'7',      '8','9',           KEY_LOGOUT},
+  {KEY_ENTER,'0',KEY_BACKSPACE, KEY_REBOOT}
 };
 
 struct myConfig{
   char pin[5];
 };
 
-byte pin_rows[ROW_NUM] = {9, 8, 7, 6}; //connect to the row pinouts of the keypad
-byte pin_column[COLUMN_NUM] = {5, 4, 3, 2}; //connect to the column pinouts of the keypad
+byte pin_rows[KEYPAD_ROWS] = {9, 8, 7, 6}; //connect to the row pinouts of the keypad
+byte pin_column[KEYPAD_COLUMNS] = {5, 4, 3, 2}; //connect to the column pinouts of the keypad
 
 myConfig cfg = {""};
 
@@ -41,8 +47,9 @@ int cursorBlink   = 1;
 int allowEdit     = 1;
 int enterShift    = 4;
 int currentScreen = SCREEN_AUTH;
+char key; 
 
-Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROW_NUM, COLUMN_NUM );
+Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, KEYPAD_ROWS, KEYPAD_COLUMNS );
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
@@ -84,38 +91,36 @@ void loop()
   if (cursorBlink == 1)
     lcd.blink();
   
-  char key = keypad.getKey();
-  if (key){
-    if (key == '#') {
-      doBackspace();
-    } else if (key == 'A') {
-      if(auth == 1)
-        screenNewPin();
-        
-    } else if (key == 'C') {
-      if(auth == 1)
-        screenLogout();   
-        
-    } else if (key == 'D') {
-      if(auth == 1)
-        screenReboot();
-        
-    } else if(key == '*') {
-      doEnter();
+  key = keypad.getKey();
+  if (key) {
+    switch (key) {
+      case KEY_BACKSPACE:
+        doBackspace(); 
+        break;
       
-    } else {
-      if (allowEdit == 1){
-        charCnt++;
-        
-        if (charCnt > 4) {
-          charCnt--;
-        } else {
-          lcd.print(key);
-          inputPin += key;
-        }
-      }
+      case KEY_ENTER:
+        doEnter(); 
+        break;
+      
+      case KEY_NEW_PIN:
+        if(auth == 1)
+          screenNewPin(); 
+        break;
+      
+      case KEY_LOGOUT:
+        if(auth == 1)
+          screenLogout(); 
+        break;
+      
+      case KEY_REBOOT:
+        if(auth == 1)
+          screenReboot();
+        break;  
+      
+      default:
+        doKeyBuffer();
+        break;
     }
-//    Serial.println(key);
   }
 }
 
@@ -252,4 +257,18 @@ void doEnter()
     
   charCnt = 0;
   inputPin = ""; 
+}
+
+void doKeyBuffer()
+{
+  if (allowEdit == 1){
+    charCnt++;
+    
+    if (charCnt > 4) {
+      charCnt--;
+    } else {
+      lcd.print(key);
+      inputPin += key;
+    }
+  }
 }
