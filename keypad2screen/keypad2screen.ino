@@ -58,7 +58,7 @@ void setup()
   EEPROM.get(0, cfg);
   
   if ((cfg.pin != NULL) && (cfg.pin[0] == '\0')) {
-    Serial.println("Empty");
+//    Serial.println("Empty");
     pinCode.toCharArray(cfg.pin,5);
   } else {
 //    Serial.println("Start:");
@@ -75,13 +75,8 @@ void setup()
 //  Serial.println(cfg.pin);
 //  Serial.println(String(cfg.pin));
 //  Serial.println("End.");
-    
   lcd.begin();
-  lcd.backlight();
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("PIN: ");
-  enterShift = SHIFT_AUTH;
+  screenAuth();  
 }
 
 void loop()
@@ -91,122 +86,27 @@ void loop()
   
   char key = keypad.getKey();
   if (key){
-    if (allowEdit == 1 && key == '#') {
-      charCnt--;
-      
-      if (charCnt >= 0) {
-        inputPin.remove(charCnt);
-        lcd.setCursor(enterShift + charCnt, 0);
-        lcd.print(" ");
-        lcd.setCursor(enterShift + charCnt, 0);
-      } else {
-        inputPin = "";
-        charCnt = 0;
-      }
-    } else if (auth == 1 && key == 'A') {
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Change PIN");
-      delay(1000);
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("New PIN: ");
-      inputPin = "";
-      allowEdit = 1;
-      cursorBlink = 1;
-      currentScreen = SCREEN_NEW_PIN;
-      enterShift = SHIFT_NEW_PIN;
-    } else if (auth == 1 && key == 'C') {
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Logout");
-      delay(1000);
-      allowEdit = 1;
-      cursorBlink = 1;
-      inputPin = "";
-      auth = 0;
-      enterShift = SHIFT_AUTH;
-      currentScreen = SCREEN_AUTH;
-      lcd.blink();
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("PIN: ");      
-    } else if (auth == 1 && key == 'D') {
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Reboot");
-      for (int i = 5; i >= 1; i--) {
-        lcd.setCursor(0,1);
-        lcd.print(i);
-        delay(1000);
-      }
-      resetFunc();
-    } else if(key == '*') {
-      Serial.print("cfg.pin = '");
-      Serial.print(cfg.pin);
-      Serial.println("'");
-      Serial.print("inputPin = '");
-      Serial.print(inputPin);
-      Serial.println("'");
-      
-      switch (currentScreen) {
-        case SCREEN_AUTH:
-          if (inputPin == String(cfg.pin)) {
-            lcd.setCursor(0,1);
-            lcd.print("SUCCESS!        ");
-            auth = 1;
-            lcd.noBlink();
-            cursorBlink = 0;
-            allowEdit = 0;
-            delay(1000);
-            lcd.clear();
-            lcd.setCursor(0,0);
-            lcd.print("Welcome!");
-          } else {
-            lcd.setCursor(0,1);
-            lcd.print("Incorrect PIN   ");
-            lcd.setCursor(0,0);
-            lcd.print("PIN:            ");
-            lcd.setCursor(enterShift,0); 
-          }  
-          break;
-        case SCREEN_NEW_PIN:
-          cursorBlink = 0;
-          allowEdit = 0;
-          if (inputPin == String(cfg.pin)){
-            lcd.setCursor(0,0);
-            lcd.print("Same PIN        ");
-            lcd.setCursor(0,1);
-            lcd.print("No changes      ");
-          } else {
-            lcd.setCursor(0,0);
-            lcd.print("Saving...       ");
-            lcd.backlight();
-
-//            Serial.println(cfg.pin);    
-//            inputPin.toCharArray(cfg.pin, 5);
-//            Serial.println(cfg.pin);
-            
-            EEPROM.put(0,cfg);
-            
-            delay(1000);
-            lcd.backlight();
-            lcd.setCursor(0,1);
-            lcd.print("PIN changed     ");
-          }
-          lcd.noBlink();
-          delay(1000);
-          lcd.clear();
-          lcd.setCursor(0,0);
-          lcd.print("Welcome!");
-          break;
-      }
+    if (key == '#') {
+      doBackspace();
+    } else if (key == 'A') {
+      if(auth == 1)
+        screenNewPin();
         
-      charCnt = 0;
-      inputPin = ""; 
+    } else if (key == 'C') {
+      if(auth == 1)
+        screenLogout();   
+        
+    } else if (key == 'D') {
+      if(auth == 1)
+        screenReboot();
+        
+    } else if(key == '*') {
+      doEnter();
+      
     } else {
       if (allowEdit == 1){
         charCnt++;
+        
         if (charCnt > 4) {
           charCnt--;
         } else {
@@ -217,4 +117,139 @@ void loop()
     }
 //    Serial.println(key);
   }
+}
+
+void screenWrite(String str, int line)
+{
+  lcd.setCursor(0, line);
+  lcd.print(str);  
+}
+
+void writeFirst(String str)
+{
+  screenWrite(str, 0);
+}
+
+void writeSecond(String str)
+{
+  screenWrite(str, 1);
+}
+
+void screenWelcome()
+{
+  cursorBlink = 0;
+  allowEdit   = 0;
+  
+  lcd.noBlink();
+  delay(1000);
+  lcd.clear();
+  writeFirst("Welcome!");
+}
+
+void screenAuth()
+{
+  allowEdit     = 1;
+  cursorBlink   = 1;
+  inputPin      = "";
+  auth          = 0;
+  enterShift    = SHIFT_AUTH;
+  currentScreen = SCREEN_AUTH;
+  
+  lcd.blink();
+  lcd.clear();
+  writeFirst("PIN: ");    
+}
+
+void screenLogout()
+{
+  lcd.clear();
+  writeFirst("Logout");
+  delay(1000);
+  screenAuth(); 
+}
+
+void screenReboot()
+{
+  lcd.clear();
+  writeFirst("Reboot");
+  for (int i = 5; i >= 1; i--) {
+    writeSecond(String(i));
+    delay(1000);
+  }
+  resetFunc();
+}
+
+void screenNewPin()
+{
+  inputPin      = "";
+  allowEdit     = 1;
+  cursorBlink   = 1;
+  currentScreen = SCREEN_NEW_PIN;
+  enterShift    = SHIFT_NEW_PIN;
+  
+  lcd.clear();
+  writeFirst("Change PIN");
+  delay(1000);
+  lcd.clear();
+  writeFirst("New PIN: ");
+}
+
+void doBackspace()
+{
+  if (allowEdit == 1) {
+    charCnt--;
+    
+    if (charCnt >= 0) {
+      inputPin.remove(charCnt);
+      lcd.setCursor(enterShift + charCnt, 0);
+      lcd.print(" ");
+      lcd.setCursor(enterShift + charCnt, 0);
+    } else {
+      inputPin = "";
+      charCnt = 0;
+    }
+  }
+}
+
+void doEnter()
+{
+//      Serial.print("cfg.pin = '");
+//      Serial.print(cfg.pin);
+//      Serial.println("'");
+//      Serial.print("inputPin = '");
+//      Serial.print(inputPin);
+//      Serial.println("'");
+  
+  switch (currentScreen) {
+    case SCREEN_AUTH:
+      if (inputPin == String(cfg.pin)) {
+        writeSecond("SUCCESS!        ");
+        auth = 1;
+        screenWelcome();
+      } else {
+        writeSecond("Incorrect PIN   ");
+        writeFirst("PIN:            ");
+        lcd.setCursor(enterShift,0); 
+      }  
+      break;
+    case SCREEN_NEW_PIN:
+      if (inputPin == String(cfg.pin)){
+        writeFirst("Same PIN        ");
+        writeSecond("No changes      ");
+      } else {
+        writeFirst("Saving...       ");
+        lcd.backlight();
+        
+        inputPin.toCharArray(cfg.pin, 5);
+        EEPROM.put(0,cfg);
+        
+        delay(1000);
+        writeSecond("PIN changed     ");
+      }
+      screenWelcome();
+      break;
+  }
+    
+  charCnt = 0;
+  inputPin = ""; 
 }
